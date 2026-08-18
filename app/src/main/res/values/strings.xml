@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">cybervarilla</string>
+    <string name="todo">TODO</string>
+    <string name="current_file_label">Archivo: %1$s</string>
+    <string name="paid_label">PAGADO: %1$d</string>
+    <string name="np_label">N-P: %1$d</string>
+    <string name="total_label">TOTAL: %1$d</string>
+    <string name="voice_result_msg">Voz: %1$s -> %2$s</string>
 </resources>

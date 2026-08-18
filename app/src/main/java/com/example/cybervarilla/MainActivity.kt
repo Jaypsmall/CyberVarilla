@@ -1,14 +1,22 @@
 package com.example.cybervarilla
 
-import android.animation.ValueAnimator
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.media.MediaPlayer
 import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.text.Editable
 import android.text.Spannable
 import android.text.SpannableString
@@ -16,18 +24,32 @@ import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.View
-import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
-import android.widget.*
+import android.widget.Button
+import android.widget.EditText
+import android.widget.GridLayout
+import android.widget.HorizontalScrollView
+import android.widget.ImageButton
+import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.net.toUri
+import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.documentfile.provider.DocumentFile
+import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.material.navigation.NavigationView
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -36,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvNP: TextView
     private lateinit var tvCurrentFile: TextView
     private lateinit var etName: EditText
+    private lateinit var etObs: EditText
     private lateinit var gridButtons: GridLayout
     private lateinit var btnSave: Button
     private lateinit var btnExport: Button
@@ -43,6 +66,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnDeleteLast: Button
     private lateinit var tvPizarra: TextView
     private lateinit var horizontalScroll: HorizontalScrollView
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var navView: NavigationView
+    private lateinit var dot1: View
+    private lateinit var dot2: View
+    private lateinit var btnVoice: com.google.android.material.floatingactionbutton.FloatingActionButton
+
+    private var speechRecognizer: SpeechRecognizer? = null
+
+        val folderPickerLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            contentResolver.takePersistableUriPermission(it, 
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            saveCustomPath(it.toString())
+            Toast.makeText(this, "Nueva ruta de guardado establecida", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) startSilentVoiceInput()
+        else Toast.makeText(this, "Permiso de micro denegado", Toast.LENGTH_SHORT).show()
+    }
 
     private var lastTotal = 0
     private var lastPaid = 0
@@ -69,23 +113,68 @@ class MainActivity : AppCompatActivity() {
     private var playerPaid: MediaPlayer? = null
     private var playerNP: MediaPlayer? = null
 
+    private val voiceReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.example.cybervarilla.VOICE_COMMAND") {
+                val text = intent.getStringExtra("VOICE_TEXT")
+                if (text != null) {
+                    processVoiceInput(text)
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        val prefs = getSharedPreferences("CyberPrefs", MODE_PRIVATE)
+        val savedMode = prefs.getInt("night_mode", 0)
+        
+        // Apply Mode
+        val appCompatMode = if (savedMode == 0) AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
+        if (AppCompatDelegate.getDefaultNightMode() != appCompatMode) {
+            AppCompatDelegate.setDefaultNightMode(appCompatMode)
+        }
+
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+        initViews()
+        
+        // Apply Sub-mode colors if in Night Mode
+        if (appCompatMode == AppCompatDelegate.MODE_NIGHT_YES) {
+            val subMode = prefs.getString("night_submode", "RED")
+            applyNightSubMode(subMode)
+        }
+        
+        // Ajuste global para insets y notch (Moto G15 Fix)
+        val mainContent = findViewById<View>(R.id.main_content)
+        val originalPaddingLeft = mainContent.paddingLeft
+        val originalPaddingTop = mainContent.paddingTop
+        val originalPaddingRight = mainContent.paddingRight
+        val originalPaddingBottom = mainContent.paddingBottom
+
+        ViewCompat.setOnApplyWindowInsetsListener(mainContent) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            v.setPadding(
+                originalPaddingLeft + systemBars.left,
+                originalPaddingTop + systemBars.top,
+                originalPaddingRight + systemBars.right,
+                originalPaddingBottom + systemBars.bottom
+            )
             insets
         }
 
-        initViews()
+        val filter = IntentFilter("com.example.cybervarilla.VOICE_COMMAND")
+        registerReceiver(voiceReceiver, filter)
+
+        setupDrawer()
         loadLastFileName()
         loadSavedDataFromFile()
         initSounds()
         setupGrid()
         updateTotalsDisplay()
         updatePizarra()
+        handleIntent(intent)
 
         btnSave.setOnClickListener { 
             pulse(it)
@@ -122,6 +211,7 @@ class MainActivity : AppCompatActivity() {
         tvNP = findViewById(R.id.tv_np)
         tvCurrentFile = findViewById(R.id.tv_current_file)
         etName = findViewById(R.id.et_name)
+        etObs = findViewById(R.id.et_obs)
         gridButtons = findViewById(R.id.grid_buttons)
         btnSave = findViewById(R.id.btn_save)
         btnExport = findViewById(R.id.btn_export)
@@ -129,33 +219,250 @@ class MainActivity : AppCompatActivity() {
         btnDeleteLast = findViewById(R.id.btn_delete_last)
         tvPizarra = findViewById(R.id.tv_pizarra)
         horizontalScroll = findViewById(R.id.horizontal_scroll)
+        drawerLayout = findViewById(R.id.drawer_layout)
+        navView = findViewById(R.id.nav_view)
+        dot1 = findViewById(R.id.dot1)
+        dot2 = findViewById(R.id.dot2)
+        btnVoice = findViewById(R.id.btn_voice)
+
+        findViewById<View>(R.id.btn_menu).setOnClickListener {
+            drawerLayout.openDrawer(GravityCompat.START)
+        }
+
+        findViewById<View>(R.id.btn_theme_toggle).setOnClickListener {
+            pulse(it)
+            toggleTheme()
+        }
+
+        btnVoice.setOnClickListener {
+            startVoiceInput()
+        }
 
         setupTitle()
         setupPaging()
     }
 
+    private fun setupDrawer() {
+        navView.setNavigationItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_theme -> {
+                    toggleTheme()
+                }
+                R.id.nav_overlay -> {
+                    toggleOverlay()
+                }
+                R.id.nav_settings -> {
+                    showSettingsDialog()
+                }
+                R.id.nav_about -> Toast.makeText(this, "Cyber Varillita v2.0\nCreated by JAYLIZ", Toast.LENGTH_LONG).show()
+            }
+            drawerLayout.closeDrawer(GravityCompat.START)
+            true
+        }
+    }
+
+    private fun toggleOverlay() {
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            val intent = Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                "package:$packageName".toUri())
+            startActivity(intent)
+            Toast.makeText(this, "Concede permiso para el botón flotante", Toast.LENGTH_LONG).show()
+        } else {
+            val intent = Intent(this, FloatingVoiceService::class.java)
+            val isRunning = isServiceRunning(FloatingVoiceService::class.java)
+            if (isRunning) {
+                stopService(intent)
+                Toast.makeText(this, "Botón flotante desactivado", Toast.LENGTH_SHORT).show()
+            } else {
+                startService(intent)
+                Toast.makeText(this, "Botón flotante activado", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        @Suppress("DEPRECATION")
+        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
+            if (serviceClass.name == service.service.className) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun toggleTheme() {
+        val currentMode = getSharedPreferences("CyberPrefs", MODE_PRIVATE).getInt("night_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        
+        val newMode = (currentMode + 1) % 3
+        
+        if (newMode == 0) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            Toast.makeText(this, "MODO PLATA", Toast.LENGTH_SHORT).show()
+        } else {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            val nightSubMode = if (newMode == 1) "RED" else "PURPLE"
+            getSharedPreferences("CyberPrefs", MODE_PRIVATE).edit {
+                putString("night_submode", nightSubMode)
+            }
+            Toast.makeText(this, "MODO $nightSubMode", Toast.LENGTH_SHORT).show()
+            
+            if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES) {
+                recreate()
+            }
+        }
+
+        getSharedPreferences("CyberPrefs", MODE_PRIVATE).edit { putInt("night_mode", newMode) }
+    }
+
+    private fun showSettingsDialog() {
+        val currentPath = getCustomPath() ?: "Descargas/CyberVarilla (Por defecto)"
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Ajustes de Guardado")
+            .setMessage("Ruta actual:\n$currentPath")
+            .setPositiveButton("Cambiar Ruta") { _, _ ->
+                folderPickerLauncher.launch(null)
+            }
+            .setNeutralButton("Restablecer") { _, _ ->
+                saveCustomPath(null)
+                Toast.makeText(this, "Ruta restablecida por defecto", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cerrar", null)
+            .show()
+    }
+
+    private fun saveCustomPath(uriString: String?) {
+        getSharedPreferences("CyberPrefs", MODE_PRIVATE).edit {
+            putString(
+                "custom_path",
+                uriString
+            )
+        }
+    }
+
+    private fun getCustomPath(): String? {
+        return getSharedPreferences("CyberPrefs", MODE_PRIVATE).getString("custom_path", null)
+    }
+
+    private fun applyNightSubMode(subMode: String?) {
+        val accentColor = if (subMode == "PURPLE") {
+            try { ContextCompat.getColor(this, R.color.demonic_purple) } catch(_: Exception) { Color.MAGENTA }
+        } else {
+            try { ContextCompat.getColor(this, R.color.hell_red) } catch(_: Exception) { Color.RED }
+        }
+
+        findViewById<TextView>(R.id.tv_title).setTextColor(accentColor)
+        findViewById<TextView>(R.id.tv_current_file).setTextColor(accentColor)
+        findViewById<ImageButton>(R.id.btn_menu).setColorFilter(accentColor)
+        findViewById<ImageButton>(R.id.btn_theme_toggle).setColorFilter(accentColor)
+        btnVoice.supportImageTintList = ColorStateList.valueOf(accentColor)
+        
+        // Botones de abajo también con el color del modo
+        val colorStateList = ColorStateList.valueOf(accentColor)
+        (btnSave as com.google.android.material.button.MaterialButton).strokeColor = colorStateList
+        (btnExport as com.google.android.material.button.MaterialButton).strokeColor = colorStateList
+        (btnNewFile as com.google.android.material.button.MaterialButton).strokeColor = colorStateList
+        
+        // Update HUD elements
+        findViewById<View>(R.id.ll_totals).background = createHUDDrawable(accentColor)
+        findViewById<View>(R.id.et_name).background = createHUDDrawable(accentColor)
+        findViewById<View>(R.id.et_obs).background = createHUDDrawable(accentColor)
+        findViewById<View>(R.id.layout_pizarra).background = createHUDDrawable(accentColor)
+
+        // Sync dots
+        dot1.backgroundTintList = colorStateList
+        dot2.backgroundTintList = colorStateList
+
+        // Sync NavigationView
+        navView.itemIconTintList = colorStateList
+        navView.itemTextColor = colorStateList
+        navView.findViewById<TextView>(R.id.footer_title)?.setTextColor(accentColor)
+    }
+
+    private fun createHUDDrawable(accentColor: Int): LayerDrawable {
+        val density = resources.displayMetrics.density
+        val radius = 15 * density
+        val isNight = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
+        val panelColor = if (isNight) {
+            try { ContextCompat.getColor(this, R.color.obsidian) } catch(_: Exception) { Color.BLACK }
+        } else {
+            try { ContextCompat.getColor(this, R.color.shiny_silver) } catch(_: Exception) { Color.LTGRAY }
+        }
+
+        val main = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = radius
+            setColor(panelColor)
+            setStroke((2 * density).toInt(), accentColor)
+        }
+        return LayerDrawable(arrayOf(main))
+    }
+
     private fun setupPaging() {
         val displayMetrics = resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
+        val density = displayMetrics.density
+        val totalHorizontalPadding = (32 * density).toInt()
+        val availableWidth = screenWidth - totalHorizontalPadding
         
-        findViewById<View>(R.id.scroll_grid).layoutParams.width = screenWidth
-        findViewById<View>(R.id.layout_pizarra).layoutParams.width = screenWidth
+        findViewById<View>(R.id.scroll_grid).layoutParams.width = availableWidth
+        findViewById<View>(R.id.layout_pizarra).layoutParams.width = availableWidth
+        
+        horizontalScroll.setOnScrollChangeListener { _, scrollX, _, _, _ ->
+            val page = if (scrollX > availableWidth / 2) 1 else 0
+            updateDots(page)
+        }
+    }
+
+    private fun updateDots(page: Int) {
+        dot1.setBackgroundResource(if (page == 0) R.drawable.dot_active else R.drawable.dot_inactive)
+        dot2.setBackgroundResource(if (page == 1) R.drawable.dot_active else R.drawable.dot_inactive)
+        
+        // Scale animation for dots
+        val activeDot = if (page == 0) dot1 else dot2
+        val inactiveDot = if (page == 0) dot2 else dot1
+        
+        activeDot.animate().scaleX(1.3f).scaleY(1.3f).setDuration(200).start()
+        inactiveDot.animate().scaleX(1.0f).scaleY(1.0f).setDuration(200).start()
     }
 
     private fun setupTitle() {
         val title = "CYBER VARILLITA"
         val spannable = SpannableString(title)
-        val purpleColor = ContextCompat.getColor(this, R.color.color_purple)
-        val greenColor = ContextCompat.getColor(this, R.color.color_green)
         
-        spannable.setSpan(ForegroundColorSpan(purpleColor), 0, 5, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-        spannable.setSpan(ForegroundColorSpan(greenColor), 6, title.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        val prefs = getSharedPreferences("CyberPrefs", MODE_PRIVATE)
+        val mode = prefs.getInt("night_mode", 0)
+        val subMode = prefs.getString("night_submode", "RED")
+        
+        val accentColor = if (mode == 0) {
+            ContextCompat.getColor(this, R.color.theme_accent)
+        } else {
+            if (subMode == "PURPLE") {
+                try { ContextCompat.getColor(this, R.color.demonic_purple) } catch(_: Exception) { Color.MAGENTA }
+            } else {
+                try { ContextCompat.getColor(this, R.color.hell_red) } catch(_: Exception) { Color.RED }
+            }
+        }
+
+        val mainTextColor = ContextCompat.getColor(this, R.color.theme_text)
+        
+        // Cyber gradient-like effect with spans
+        spannable.setSpan(ForegroundColorSpan(mainTextColor), 0, 5, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        spannable.setSpan(ForegroundColorSpan(accentColor), 6, title.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         spannable.setSpan(StyleSpan(Typeface.BOLD), 0, title.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         
-        tvTotal.parent.let { 
-             val tvTitle = findViewById<TextView>(R.id.tv_title)
-             tvTitle.text = spannable
+        val tvTitle = findViewById<TextView>(R.id.tv_title)
+        tvTitle.text = spannable
+        
+        // Subtle glow animation for title
+        val glowAnim = ValueAnimator.ofFloat(5f, 20f, 5f).apply {
+            duration = 2000
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener {
+                tvTitle.setShadowLayer(it.animatedValue as Float, 0f, 0f, accentColor)
+            }
         }
+        glowAnim.start()
     }
 
     private fun initSounds() {
@@ -173,15 +480,29 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(voiceReceiver)
         playerPaid?.release()
         playerNP?.release()
+        speechRecognizer?.destroy()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra("ACTION_VOICE", false) == true) {
+            startVoiceInput()
+        }
     }
 
     private fun loadLastFileName() {
         if (lastFileMarker.exists()) {
             currentFileName = lastFileMarker.readText().trim()
         }
-        tvCurrentFile.text = "Archivo: $currentFileName"
+        tvCurrentFile.text = getString(R.string.current_file_label, currentFileName)
     }
 
     private fun loadSavedDataFromFile() {
@@ -224,9 +545,15 @@ class MainActivity : AppCompatActivity() {
         
         val displayMetrics = resources.displayMetrics
         val screenWidth = displayMetrics.widthPixels
-        val padding = (32 * displayMetrics.density).toInt() // 16dp each side
-        val spacing = (15 * displayMetrics.density).toInt()
-        val btnWidth = (screenWidth - padding - spacing) / 2
+        val density = displayMetrics.density
+        
+        // precise calculation
+        val containerPadding = (32 * density).toInt() // ConstraintLayout padding
+        val gridPadding = (8 * density).toInt() // GridLayout padding (4dp * 2)
+        val availableWidth = screenWidth - containerPadding - gridPadding
+        val spacing = (12 * density).toInt()
+        
+        val btnWidth = (availableWidth - spacing) / 2
 
         for (i in values.indices) {
             val btn = Button(this).apply {
@@ -234,21 +561,29 @@ class MainActivity : AppCompatActivity() {
                 textSize = 24f
                 setTextColor(Color.WHITE)
                 typeface = ResourcesCompat.getFont(this@MainActivity, R.font.orbitron_black)
+                stateListAnimator = android.animation.AnimatorInflater.loadStateListAnimator(context, R.animator.button_press_scale)
                 
                 val params = GridLayout.LayoutParams().apply {
                     width = btnWidth
-                    height = (100 * displayMetrics.density).toInt()
-                    setMargins(0, 0, spacing, spacing)
+                    height = (65 * density).toInt()
+                    val marginRight = if (i % 2 == 0) spacing else 0
+                    setMargins(0, 0, marginRight, spacing)
                 }
                 layoutParams = params
                 
                 setOnClickListener { onValueButtonClick(i) }
                 
-                // Pop-in animation
                 alpha = 0f
-                scaleX = 0f
-                scaleY = 0f
-                animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(300).setStartDelay(i * 50L).start()
+                scaleX = 0.7f
+                scaleY = 0.7f
+                animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setDuration(500)
+                    .setStartDelay(i * 40L)
+                    .setInterpolator(AccelerateDecelerateInterpolator())
+                    .start()
             }
             buttons.add(btn)
             gridButtons.addView(btn)
@@ -258,18 +593,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun onValueButtonClick(index: Int) {
         val name = etName.text.toString().trim()
+        val obs = etObs.text.toString().trim()
+        val displayName = if (obs.isNotEmpty()) "$name ($obs)" else name
+
         if (name.isEmpty()) {
             Toast.makeText(this, "Ingrese un nombre", Toast.LENGTH_SHORT).show()
             return
         }
 
+        // Haptic feedback
+        buttons[index].performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+        
         pulse(buttons[index])
 
-        val userEntries = tempEntries.getOrPut(name) { mutableMapOf() }
+        val userEntries = tempEntries.getOrPut(displayName) { mutableMapOf() }
         val currentState = userEntries.getOrDefault(index, 0)
         
         // Save to history for "Borrar Último" (Undo)
-        actionHistory.add(Triple(name, index, currentState))
+        actionHistory.add(Triple(displayName, index, currentState))
         if (actionHistory.size > 50) actionHistory.removeAt(0)
 
         val newState = (currentState + 1) % 3
@@ -287,7 +628,6 @@ class MainActivity : AppCompatActivity() {
         val totalPagados = mutableMapOf<String, Int>().apply { putAll(savedPagados) }
         val totalNoPagados = mutableMapOf<String, Int>().apply { putAll(savedNoPagados) }
 
-        // Merge temporary entries for real-time visualization
         tempEntries.forEach { (nombre, entries) ->
             entries.forEach { (idx, state) ->
                 val v = values[idx].toInt()
@@ -300,35 +640,86 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (totalPagados.isEmpty() && totalNoPagados.isEmpty()) {
-            tvPizarra.text = "No hay salidas registradas."
+            tvPizarra.text = "⚡ ESPERANDO DATOS..."
+            tvPizarra.alpha = 0.5f
             return
         }
+        tvPizarra.alpha = 1.0f
 
-        val sb = StringBuilder()
-        sb.append("--- ESTADO ACTUAL DEL INFORME ---\n\n")
+        val sb = android.text.SpannableStringBuilder()
         
-        sb.append("PAGADO\n----------\n")
-        totalPagados.forEach { (n, v) -> sb.append("$n: $v\n") }
+        val prefs = getSharedPreferences("CyberPrefs", MODE_PRIVATE)
+        val mode = prefs.getInt("night_mode", 0)
+        val subMode = prefs.getString("night_submode", "RED")
         
-        sb.append("\nNO PAGADO\n-----------\n")
-        totalNoPagados.forEach { (n, v) -> sb.append("$n: $v\n") }
+        val accentColor = if (mode == 0) {
+            ContextCompat.getColor(this, R.color.theme_accent)
+        } else {
+            if (subMode == "PURPLE") {
+                try { ContextCompat.getColor(this, R.color.demonic_purple) } catch(_: Exception) { Color.MAGENTA }
+            } else {
+                try { ContextCompat.getColor(this, R.color.hell_red) } catch(_: Exception) { Color.RED }
+            }
+        }
+        
+        val greenColor = ContextCompat.getColor(this, R.color.color_green)
+        val redColor = ContextCompat.getColor(this, R.color.color_red)
+        val yellowColor = try { ContextCompat.getColor(this, R.color.brimstone_yellow) } catch(_: Exception) { accentColor }
+
+        fun appendSection(title: String, icon: String, data: Map<String, Int>, color: Int) {
+            val start = sb.length
+            sb.append("$icon $title\n")
+            sb.setSpan(ForegroundColorSpan(color), start, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            
+            if (data.isEmpty()) {
+                sb.append("   (VACÍO)\n")
+            } else {
+                data.forEach { (n, v) ->
+                    sb.append("   • $n: ")
+                    val vStart = sb.length
+                    sb.append("$v\n")
+                    sb.setSpan(ForegroundColorSpan(color), vStart, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+            }
+            sb.append("\n")
+        }
+
+        appendSection("CRÉDITOS PAGADOS", "✅", totalPagados, greenColor)
+        appendSection("PENDIENTES DE PAGO", "⚠️", totalNoPagados, redColor)
 
         val pSum = totalPagados.values.sum()
         val npSum = totalNoPagados.values.sum()
         
-        sb.append("\nPAGADO TOTAL: $pSum\n")
-        sb.append("NO PAGADO TOTAL: $npSum\n")
-        sb.append("TOTAL GENERAL: ${pSum + npSum}\n")
+        val summaryStart = sb.length
+        sb.append("━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+        sb.setSpan(ForegroundColorSpan(accentColor), summaryStart, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        
+        val paidTextStart = sb.length
+        sb.append("💰 TOTAL PAGADO: $pSum\n")
+        sb.setSpan(ForegroundColorSpan(greenColor), paidTextStart, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        
+        val npTextStart = sb.length
+        sb.append("🚨 TOTAL N-P: $npSum\n")
+        sb.setSpan(ForegroundColorSpan(redColor), npTextStart, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        
+        val grandTotalStart = sb.length
+        sb.append("💠 TOTAL GENERAL: ${pSum + npSum}")
+        
+        sb.setSpan(ForegroundColorSpan(yellowColor), grandTotalStart, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(StyleSpan(Typeface.BOLD), grandTotalStart, sb.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
 
-        tvPizarra.text = sb.toString()
+        tvPizarra.text = sb
     }
 
     private fun pulse(view: View) {
-        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.1f, 1f)
-        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.1f, 1f)
+        val scaleX = ObjectAnimator.ofFloat(view, "scaleX", 1f, 1.05f, 1f)
+        val scaleY = ObjectAnimator.ofFloat(view, "scaleY", 1f, 1.05f, 1f)
+        val alpha = ObjectAnimator.ofFloat(view, "alpha", 1f, 0.8f, 1f)
+        
         AnimatorSet().apply {
-            playTogether(scaleX, scaleY)
-            duration = 150
+            playTogether(scaleX, scaleY, alpha)
+            duration = 200
             interpolator = AccelerateDecelerateInterpolator()
             start()
         }
@@ -336,35 +727,59 @@ class MainActivity : AppCompatActivity() {
 
     private fun createCyberDrawable(strokeColor: Int, bgColor: Int, radius: Float): LayerDrawable {
         val displayMetrics = resources.displayMetrics
+        val density = displayMetrics.density
         
-        // Glow layer (soft)
+        // 1. Capa de Brillo Exterior (Glow / Sombra de color)
+        // Usamos un stroke grueso y semitransparente para simular neón
         val glow = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
             cornerRadius = radius
             setColor(Color.TRANSPARENT)
-            setStroke((4 * displayMetrics.density).toInt(), strokeColor)
-            alpha = 40
+            setStroke((6 * density).toInt(), strokeColor)
+            alpha = 30 // Muy sutil
         }
         
-        // Inner Glow / Shadow
-        val shadow = GradientDrawable().apply {
-            cornerRadius = radius
-            setColor(Color.parseColor("#40000000"))
-        }
-        
-        // Main layer
+        // 2. Cuerpo Principal con Gradiente Radial (Efecto Núcleo)
         val main = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
             cornerRadius = radius
-            setColor(bgColor)
-            setStroke((2 * displayMetrics.density).toInt(), strokeColor)
+            
+            val r = Color.red(bgColor)
+            val g = Color.green(bgColor)
+            val b = Color.blue(bgColor)
+            // Creamos un color central más brillante
+            val centerColor = Color.argb(255, Math.min(255, r + 40), Math.min(255, g + 40), Math.min(255, b + 40))
+            
+            colors = intArrayOf(centerColor, bgColor)
+            gradientType = GradientDrawable.RADIAL_GRADIENT
+            gradientRadius = 150 * density
+            
+            setStroke((2 * density).toInt(), strokeColor)
         }
         
-        val layers = arrayOf(glow, shadow, main)
+        // 3. Reflejo Superior (Glass HUD)
+        val shine = GradientDrawable().apply {
+            cornerRadius = radius
+            colors = intArrayOf(Color.argb(80, 255, 255, 255), Color.TRANSPARENT)
+            orientation = GradientDrawable.Orientation.TOP_BOTTOM
+        }
+        
+        // 4. Borde de Contorno Nitido (Para eliminar el fantasma)
+        val rim = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(Color.TRANSPARENT)
+            setStroke((1 * density).toInt(), Color.argb(180, 255, 255, 255)) // Blanco puro fino
+        }
+        
+        val layers = arrayOf(glow, main, shine, rim)
         val ld = LayerDrawable(layers)
         
-        ld.setLayerInset(0, 0, 0, 0, 0)
-        ld.setLayerInset(1, (3 * displayMetrics.density).toInt(), (3 * displayMetrics.density).toInt(), 0, 0)
-        val m = (2 * displayMetrics.density).toInt()
-        ld.setLayerInset(2, m, m, m, m)
+        // Ajuste de insets para que todo encaje sin "fantasmas"
+        val glowMargin = (3 * density).toInt()
+        ld.setLayerInset(0, 0, 0, 0, 0) // El glow es el más externo
+        ld.setLayerInset(1, glowMargin, glowMargin, glowMargin, glowMargin) // El cuerpo se encoge para dejar ver el glow
+        ld.setLayerInset(2, glowMargin * 2, glowMargin, glowMargin * 2, (40 * density).toInt()) // El brillo
+        ld.setLayerInset(3, glowMargin, glowMargin, glowMargin, glowMargin) // El borde nítido alineado con el cuerpo
         
         return ld
     }
@@ -372,28 +787,35 @@ class MainActivity : AppCompatActivity() {
     private fun updateButtonAppearance(index: Int) {
         val btn = buttons[index]
         val name = etName.text.toString().trim()
-        val state = if (name.isNotEmpty()) tempEntries[name]?.get(index) ?: 0 else 0
+        val obs = etObs.text.toString().trim()
+        val displayName = if (obs.isNotEmpty()) "$name ($obs)" else name
+        val state = if (name.isNotEmpty()) tempEntries[displayName]?.get(index) ?: 0 else 0
         
         val displayMetrics = resources.displayMetrics
-        val radius = 20 * displayMetrics.density
+        val radius = 25 * displayMetrics.density 
         
         val bgColor = when (state) {
-            0 -> ContextCompat.getColor(this, R.color.color_panel)
-            1 -> Color.parseColor("#FF6666") // Light red
-            2 -> Color.parseColor("#00E666") // Light green
-            else -> ContextCompat.getColor(this, R.color.color_panel)
+            0 -> ContextCompat.getColor(this, R.color.theme_btn_neutral)
+            1 -> ContextCompat.getColor(this, R.color.theme_btn_red)
+            2 -> ContextCompat.getColor(this, R.color.theme_btn_green)
+            else -> ContextCompat.getColor(this, R.color.theme_btn_neutral)
         }
         
         val strokeColor = when (state) {
-            0 -> Color.WHITE
-            1 -> Color.parseColor("#FFB3B3") // Glow red
-            2 -> Color.parseColor("#B3FFD9") // Glow green
-            else -> Color.WHITE
+            0 -> ContextCompat.getColor(this, R.color.theme_btn_neutral_stroke)
+            1 -> ContextCompat.getColor(this, R.color.theme_btn_red_stroke)
+            2 -> ContextCompat.getColor(this, R.color.theme_btn_green_stroke)
+            else -> ContextCompat.getColor(this, R.color.theme_btn_neutral_stroke)
         }
 
         btn.background = createCyberDrawable(strokeColor, bgColor, radius)
-
-        // Handle Blinking
+        
+        val isNight = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
+        val neutralTextColor = if (isNight) Color.GRAY else ContextCompat.getColor(this, R.color.theme_text_secondary)
+        val activeTextColor = if (isNight) Color.WHITE else ContextCompat.getColor(this, R.color.theme_text)
+        
+        btn.setTextColor(if (state > 0) activeTextColor else neutralTextColor)
+        
         if (state > 0) {
             startBlinking(index, btn)
         } else {
@@ -429,21 +851,21 @@ class MainActivity : AppCompatActivity() {
         val np = fileNP + tempNP
         val total = paid + np
 
-        animateTextChange(tvPaid, lastPaid, paid, "PAGADO: ")
-        animateTextChange(tvNP, lastNP, np, "N-P: ")
-        animateTextChange(tvTotal, lastTotal, total, "TOTAL: ")
+        animateTextChange(tvPaid, lastPaid, paid, R.string.paid_label)
+        animateTextChange(tvNP, lastNP, np, R.string.np_label)
+        animateTextChange(tvTotal, lastTotal, total, R.string.total_label)
 
         lastPaid = paid
         lastNP = np
         lastTotal = total
     }
 
-    private fun animateTextChange(textView: TextView, from: Int, to: Int, prefix: String) {
+    private fun animateTextChange(textView: TextView, from: Int, to: Int, resId: Int) {
         if (from == to) return
         val animator = ValueAnimator.ofInt(from, to)
         animator.duration = 500
         animator.addUpdateListener { 
-            textView.text = "$prefix${it.animatedValue}"
+            textView.text = getString(resId, it.animatedValue as Int)
         }
         animator.start()
     }
@@ -544,6 +966,29 @@ class MainActivity : AppCompatActivity() {
         val sb = StringBuilder()
         sb.append(tvPizarra.text.toString())
         
+        val customPathUri = getCustomPath()
+        
+        if (customPathUri != null) {
+            try {
+                val treeUri = customPathUri.toUri()
+                val pickedDir = DocumentFile.fromTreeUri(this, treeUri)
+                val newFile = pickedDir?.createFile("text/plain", fileName)
+                newFile?.uri?.let { uri ->
+                    contentResolver.openOutputStream(uri)?.use { os ->
+                        os.write(sb.toString().toByteArray())
+                    }
+                    Toast.makeText(this, "Exportado a ruta personalizada", Toast.LENGTH_LONG).show()
+                }
+            } catch (_: Exception) {
+                Toast.makeText(this, "Error en ruta personalizada", Toast.LENGTH_SHORT).show()
+                exportToDefaultLocation(fileName, sb.toString())
+            }
+        } else {
+            exportToDefaultLocation(fileName, sb.toString())
+        }
+    }
+
+    private fun exportToDefaultLocation(fileName: String, content: String) {
         try {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 val resolver = contentResolver
@@ -554,16 +999,16 @@ class MainActivity : AppCompatActivity() {
                 }
                 val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
                 uri?.let {
-                    resolver.openOutputStream(it)?.use { os -> os.write(sb.toString().toByteArray()) }
+                    resolver.openOutputStream(it)?.use { os -> os.write(content.toByteArray()) }
                 }
             } else {
                 val dir = File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "CyberVarilla")
                 if (!dir.exists()) dir.mkdirs()
-                File(dir, fileName).writeText(sb.toString())
+                File(dir, fileName).writeText(content)
             }
             Toast.makeText(this, "Exportado: $fileName", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Error al exportar", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -606,6 +1051,7 @@ class MainActivity : AppCompatActivity() {
 
         // Reset
         etName.setText("")
+        etObs.setText("")
         tempEntries.clear()
         actionHistory.clear()
         updatePizarra()
@@ -638,12 +1084,149 @@ class MainActivity : AppCompatActivity() {
 
         // Update Button Appearance if name matches
         val currentName = etName.text.toString().trim()
-        if (currentName == name) {
+        val currentObs = etObs.text.toString().trim()
+        val currentDisplayName = if (currentObs.isNotEmpty()) "$currentName ($currentObs)" else currentName
+
+        if (currentDisplayName == name) {
             updateButtonAppearance(index)
         }
 
         updateTotalsDisplay()
         updatePizarra()
         Toast.makeText(this, "Última acción borrada", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun startVoiceInput() {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+        } else {
+            startSilentVoiceInput()
+        }
+    }
+
+    private fun startSilentVoiceInput() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Toast.makeText(this, "Reconocimiento no disponible", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        speechRecognizer?.destroy()
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+        
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+        }
+
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                Toast.makeText(this@MainActivity, "Escuchando...", Toast.LENGTH_SHORT).show()
+                btnVoice.alpha = 0.5f
+            }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {
+                btnVoice.alpha = 1.0f
+            }
+            override fun onError(error: Int) {
+                btnVoice.alpha = 1.0f
+                val message = when (error) {
+                    SpeechRecognizer.ERROR_NO_MATCH -> "No se escuchó nada"
+                    SpeechRecognizer.ERROR_NETWORK -> "Error de red"
+                    else -> "Error de voz: $error"
+                }
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            }
+            override fun onResults(results: Bundle?) {
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!matches.isNullOrEmpty()) {
+                    processVoiceInput(matches[0])
+                }
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+
+        speechRecognizer?.startListening(intent)
+    }
+
+    private fun processVoiceInput(text: String) {
+        val cleanText = text.lowercase().trim()
+
+        // Comando especial para borrar
+        if (cleanText == "borrar" || cleanText.contains("borrar última") || cleanText.contains("borrar ultima")) {
+            deleteLast()
+            Toast.makeText(this, "Voz: Acción borrada", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Diccionario para convertir números hablados en español a dígitos
+        val numberMap = mapOf(
+            "cinco" to "5", "diez" to "10", "quince" to "15", "veinte" to "20", 
+            "vente" to "20", "veinticinco" to "25", "treinta" to "30", 
+            "cuarenta" to "40", "cincuenta" to "50"
+        )
+
+        // Comprobar si se mencionó "pagado"
+        val isPaidCommand = cleanText.contains("pagado")
+        
+        // Separar por espacios
+        val parts = cleanText.split("\\s+".toRegex())
+        
+        var valueFoundIndex = -1
+        var nameFound = ""
+        
+        // Recorrer las partes buscando el número (ya sea como dígito o palabra)
+        for (i in parts.indices) {
+            val part = parts[i]
+            // Limpiar la parte de caracteres no deseados (conservando dígitos y letras)
+            val cleanPart = part.replace("[^a-z0-9]".toRegex(), "")
+            
+            // Intentar encontrar el valor en el mapa de palabras o directamente como dígito
+            val digitValue = numberMap[cleanPart] ?: cleanPart.filter { it.isDigit() }
+            
+            if (digitValue.isNotEmpty()) {
+                val indexInValues = values.indexOf(digitValue)
+                if (indexInValues != -1) {
+                    valueFoundIndex = indexInValues
+                    // Todo lo anterior al número se considera el nombre
+                    nameFound = parts.subList(0, i).joinToString(" ").trim()
+                    break
+                }
+            }
+        }
+        
+        if (valueFoundIndex != -1) {
+            val finalName = if (nameFound.isNotEmpty()) nameFound.uppercase() else etName.text.toString().ifEmpty { "CLIENTE" }
+            
+            if (nameFound.isNotEmpty()) {
+                etName.setText(finalName)
+                etObs.setText("") 
+            }
+            
+            // Lógica de marcado inteligente basada en la palabra "pagado"
+            val displayName = if (etObs.text.toString().isNotEmpty()) "$finalName (${etObs.text})" else finalName
+            val userEntries = tempEntries.getOrPut(displayName) { mutableMapOf() }
+            
+            // Estado 1 = No Pagado, Estado 2 = Pagado
+            val newState = if (isPaidCommand) 2 else 1
+            
+            // Guardar en el historial para deshacer
+            val currentState = userEntries.getOrDefault(valueFoundIndex, 0)
+            actionHistory.add(Triple(displayName, valueFoundIndex, currentState))
+            
+            userEntries[valueFoundIndex] = newState
+            playSound(isPaidCommand) // Sonido de éxito (pagado) o advertencia (pendiente)
+            
+            updateButtonAppearance(valueFoundIndex)
+            updateTotalsDisplay()
+            updatePizarra()
+            
+            val statusLabel = if (isPaidCommand) "PAGADO" else "PENDIENTE"
+            Toast.makeText(this, "Voz: $finalName -> ${values[valueFoundIndex]} ($statusLabel)", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "No se reconoció un valor (5, 10, 15, 20...) en: '$text'", Toast.LENGTH_LONG).show()
+        }
     }
 }

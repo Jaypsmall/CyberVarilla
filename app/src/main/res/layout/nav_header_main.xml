@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="176dp"
+    android:background="@color/theme_bg"
+    android:gravity="bottom"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:contentDescription="App Icon"
+        android:paddingTop="8dp"
+        android:src="@drawable/app_icon" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:text="CYBER VARILLITA"
+        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+        android:textColor="@color/theme_accent"
+        android:fontFamily="@font/orbitron_black"
+        android:shadowColor="#44000000"
+        android:shadowRadius="5"
+        android:textSize="22sp" />
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="CORE MANAGEMENT SYSTEM"
+        android:textColor="@color/theme_text_secondary"
+        android:fontFamily="@font/orbitron_black"
+        android:letterSpacing="0.1"
+        android:textSize="11sp" />
+
+</LinearLayout>

@@ -5,7 +5,37 @@
     <color name="color_bg">#05050A</color>
     <color name="color_panel">#1A0D26</color>
     <color name="color_green">#00E666</color>
-    <color name="color_red">#FF6666</color>
+    <color name="color_red">#FF2222</color>
     <color name="color_purple">#A020F0</color>
     <color name="color_yellow_glow">#FFFFB3</color>
+
+    <!-- Modo Demoniaco / Modern -->
+    <color name="demo_dark">#0A0000</color>
+    <color name="demo_card">#140505</color>
+    <color name="demo_red_glow">#FF0000</color>
+    <color name="demo_accent">#880000</color>
+    <color name="white_alpha_70">#B3FFFFFF</color>
+
+    <!-- Paleta Demoniaca (Modo Claro - Plata/Sangre) -->
+    <color name="hell_red">#FF0600</color>
+    <color name="deep_blood">#B71C1C</color>
+    <color name="abyss_black">#0D0D0D</color>
+    <color name="obsidian">#1A1A1A</color>
+    <color name="ash_grey">#9E9E9E</color>
+    <color name="soul_white">#E0E0E0</color>
+    <color name="shiny_silver">#D1D5D8</color>
+    <color name="brimstone_yellow">#FFD600</color>
+    <color name="demonic_purple">#9C27B0</color>
+
+    <color name="theme_bg">@color/soul_white</color>
+    <color name="theme_panel">@color/shiny_silver</color>
+    <color name="theme_accent">@color/deep_blood</color>
+    <color name="theme_text">@color/abyss_black</color>
+    <color name="theme_text_secondary">#444444</color>
+    <color name="theme_btn_neutral">@color/shiny_silver</color>
+    <color name="theme_btn_neutral_stroke">@color/ash_grey</color>
+    <color name="theme_btn_red">#FFCCCC</color>
+    <color name="theme_btn_red_stroke">@color/deep_blood</color>
+    <color name="theme_btn_green">#CCFFCC</color>
+    <color name="theme_btn_green_stroke">#228B22</color>
 </resources>

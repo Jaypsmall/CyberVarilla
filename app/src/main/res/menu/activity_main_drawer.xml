@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_settings"
+            android:icon="@android:drawable/ic_menu_preferences"
+            android:title="Ajustes" />
+        <item
+            android:id="@+id/nav_theme"
+            android:icon="@drawable/ic_moon"
+            android:title="Modo Claro / Oscuro" />
+        <item
+            android:id="@+id/nav_overlay"
+            android:icon="@android:drawable/ic_menu_add"
+            android:title="Botón Flotante Externo" />
+    </group>
+
+    <item android:title="Información">
+        <menu>
+            <item
+                android:id="@+id/nav_about"
+                android:icon="@android:drawable/ic_menu_info_details"
+                android:title="Sobre la App" />
+        </menu>
+    </item>
+</menu>

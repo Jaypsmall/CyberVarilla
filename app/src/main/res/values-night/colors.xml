@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="theme_bg">#0D0D0D</color> <!-- Abyss Black -->
+    <color name="theme_panel">#1A1A1A</color> <!-- Obsidian -->
+    <color name="theme_accent">#FF0600</color> <!-- Hell Red -->
+    <color name="theme_text">#E0E0E0</color> <!-- Soul White -->
+    <color name="theme_text_secondary">#9E9E9E</color> <!-- Ash Grey -->
+    <color name="theme_btn_neutral">#1A1A1A</color>
+    <color name="theme_btn_neutral_stroke">#444444</color>
+    <color name="theme_btn_red">#B71C1C</color>
+    <color name="theme_btn_red_stroke">#FF0600</color>
+    <color name="theme_btn_green">#004422</color>
+    <color name="theme_btn_green_stroke">#00FF66</color>
+</resources>
