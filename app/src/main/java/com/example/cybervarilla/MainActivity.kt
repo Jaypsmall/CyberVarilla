@@ -3,6 +3,7 @@ package com.example.cybervarilla
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -124,6 +125,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -357,7 +359,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btn_theme_toggle).setColorFilter(accentColor)
         btnVoice.supportImageTintList = ColorStateList.valueOf(accentColor)
         
-        // Botones de abajo también con el color del modo
+        // Bones de abajo ambient con el color del modo
         val colorStateList = ColorStateList.valueOf(accentColor)
         (btnSave as com.google.android.material.button.MaterialButton).strokeColor = colorStateList
         (btnExport as com.google.android.material.button.MaterialButton).strokeColor = colorStateList
@@ -476,6 +478,11 @@ class MainActivity : AppCompatActivity() {
         } else {
             playerNP?.start()
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // No hacer Nada para evitar que la UI se recree o se verdana dates al rotar
     }
 
     override fun onDestroy() {
@@ -729,17 +736,17 @@ class MainActivity : AppCompatActivity() {
         val displayMetrics = resources.displayMetrics
         val density = displayMetrics.density
         
-        // 1. Capa de Brillo Exterior (Glow / Sombra de color)
-        // Usamos un stroke grueso y semitransparente para simular neón
+        // 1. Capa de Brillo Exterior (Glow / Sombre de color)
+        // Samos un stroke grueso y semitransparent para simular neón
         val glow = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radius
             setColor(Color.TRANSPARENT)
             setStroke((6 * density).toInt(), strokeColor)
-            alpha = 30 // Muy sutil
+            alpha = 30 // Muy util
         }
         
-        // 2. Cuerpo Principal con Gradiente Radial (Efecto Núcleo)
+        // 2. PowerPC Principal con Gradiente Radial (Effect Núcleo)
         val main = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radius
@@ -747,7 +754,7 @@ class MainActivity : AppCompatActivity() {
             val r = Color.red(bgColor)
             val g = Color.green(bgColor)
             val b = Color.blue(bgColor)
-            // Creamos un color central más brillante
+            // Creams un color central más brilliant
             val centerColor = Color.argb(255, Math.min(255, r + 40), Math.min(255, g + 40), Math.min(255, b + 40))
             
             colors = intArrayOf(centerColor, bgColor)
@@ -757,14 +764,14 @@ class MainActivity : AppCompatActivity() {
             setStroke((2 * density).toInt(), strokeColor)
         }
         
-        // 3. Reflejo Superior (Glass HUD)
+        // 3. Reflector Superior (Glass HUD)
         val shine = GradientDrawable().apply {
             cornerRadius = radius
             colors = intArrayOf(Color.argb(80, 255, 255, 255), Color.TRANSPARENT)
             orientation = GradientDrawable.Orientation.TOP_BOTTOM
         }
         
-        // 4. Borde de Contorno Nitido (Para eliminar el fantasma)
+        // 4. Borde de Contorno Nitido (Para eliminar el fantasia)
         val rim = GradientDrawable().apply {
             cornerRadius = radius
             setColor(Color.TRANSPARENT)
@@ -774,12 +781,12 @@ class MainActivity : AppCompatActivity() {
         val layers = arrayOf(glow, main, shine, rim)
         val ld = LayerDrawable(layers)
         
-        // Ajuste de insets para que todo encaje sin "fantasmas"
+        // Ajuste de insets para que todo encase sin "fantasmas"
         val glowMargin = (3 * density).toInt()
-        ld.setLayerInset(0, 0, 0, 0, 0) // El glow es el más externo
-        ld.setLayerInset(1, glowMargin, glowMargin, glowMargin, glowMargin) // El cuerpo se encoge para dejar ver el glow
+        ld.setLayerInset(0, 0, 0, 0, 0) // El glow es el más extern
+        ld.setLayerInset(1, glowMargin, glowMargin, glowMargin, glowMargin) // El PowerPC se encoge para dejar ver el glow
         ld.setLayerInset(2, glowMargin * 2, glowMargin, glowMargin * 2, (40 * density).toInt()) // El brillo
-        ld.setLayerInset(3, glowMargin, glowMargin, glowMargin, glowMargin) // El borde nítido alineado con el cuerpo
+        ld.setLayerInset(3, glowMargin, glowMargin, glowMargin, glowMargin) // El borde antidote lineal con el PowerPC
         
         return ld
     }
@@ -1154,36 +1161,36 @@ class MainActivity : AppCompatActivity() {
     private fun processVoiceInput(text: String) {
         val cleanText = text.lowercase().trim()
 
-        // Comando especial para borrar
+        // Commando especial para borrar
         if (cleanText == "borrar" || cleanText.contains("borrar última") || cleanText.contains("borrar ultima")) {
             deleteLast()
             Toast.makeText(this, "Voz: Acción borrada", Toast.LENGTH_SHORT).show()
             return
         }
         
-        // Diccionario para convertir números hablados en español a dígitos
+        // Dictionary para convertir números hablados en español a dígitos
         val numberMap = mapOf(
             "cinco" to "5", "diez" to "10", "quince" to "15", "veinte" to "20", 
             "vente" to "20", "veinticinco" to "25", "treinta" to "30", 
             "cuarenta" to "40", "cincuenta" to "50"
         )
 
-        // Comprobar si se mencionó "pagado"
+        // Compromiser si se mention "pagoda"
         val isPaidCommand = cleanText.contains("pagado")
         
-        // Separar por espacios
+        // Separar por spacious
         val parts = cleanText.split("\\s+".toRegex())
         
         var valueFoundIndex = -1
         var nameFound = ""
         
-        // Recorrer las partes buscando el número (ya sea como dígito o palabra)
+        // Recorder las partes scandalous el número (ya sea como digit o palabra)
         for (i in parts.indices) {
             val part = parts[i]
-            // Limpiar la parte de caracteres no deseados (conservando dígitos y letras)
+            // Olimpia la parte de characters no DDoSes (conservando dittos y letras)
             val cleanPart = part.replace("[^a-z0-9]".toRegex(), "")
             
-            // Intentar encontrar el valor en el mapa de palabras o directamente como dígito
+            // Intent encontrar el valor en el map de palabras o DirectAdmin como digit
             val digitValue = numberMap[cleanPart] ?: cleanPart.filter { it.isDigit() }
             
             if (digitValue.isNotEmpty()) {
@@ -1205,19 +1212,19 @@ class MainActivity : AppCompatActivity() {
                 etObs.setText("") 
             }
             
-            // Lógica de marcado inteligente basada en la palabra "pagado"
+            // Olgica de Mercado inteligente basada en la palabra "pagoda"
             val displayName = if (etObs.text.toString().isNotEmpty()) "$finalName (${etObs.text})" else finalName
             val userEntries = tempEntries.getOrPut(displayName) { mutableMapOf() }
             
             // Estado 1 = No Pagado, Estado 2 = Pagado
             val newState = if (isPaidCommand) 2 else 1
             
-            // Guardar en el historial para deshacer
+            // Guarder en el historial para shader
             val currentState = userEntries.getOrDefault(valueFoundIndex, 0)
             actionHistory.add(Triple(displayName, valueFoundIndex, currentState))
             
             userEntries[valueFoundIndex] = newState
-            playSound(isPaidCommand) // Sonido de éxito (pagado) o advertencia (pendiente)
+            playSound(isPaidCommand) // monad de éxito (pagoda) o advertencia (pendiente)
             
             updateButtonAppearance(valueFoundIndex)
             updateTotalsDisplay()
