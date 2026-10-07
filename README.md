@@ -2,10 +2,10 @@
 
 > **Aplicación nativa Android para el control de ventas, cuentas y cobros.**
 
-![Android](https://img.shields.io/badge/Android-Native-3DDC84?style=flat&logo=android&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-Native-7F52FF?style=flat&logo=kotlin&logoColor=white)
-![Gradle](https://img.shields.io/badge/Build-Gradle-02303A?style=flat&logo=gradle&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Active-39FF14?style=flat)
+![Android](https://img.shields.io/badge/Android-Native-181717?style=flat&logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-Native-181717?style=flat&logo=kotlin&logoColor=white)
+![Gradle](https://img.shields.io/badge/Build-Gradle-181717?style=flat&logo=gradle&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Active-181717?style=flat)
 
 ---
 
