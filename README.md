@@ -1,11 +1,10 @@
-# 🧾 CyberVarilla
+# ⚡ CyberVarilla
 
 > **Aplicación nativa Android para el control de ventas, cuentas y cobros.**
 
-![Android](https://img.shields.io/badge/Android-Native-181717?style=flat&logo=android&logoColor=green)
-![Kotlin](https://img.shields.io/badge/Kotlin-Native-181717?style=flat&logo=kotlin&logoColor=yellow)
-![Gradle](https://img.shields.io/badge/Build-Gradle-181717?style=flat&logo=gradle&logoColor=red)
-![Status](https://img.shields.io/badge/Status-Active-181717?style=flat)
+![Android](https://img.shields.io/badge/Android-181717?style=flat&logo=android&logoColor=green)
+![Kotlin](https://img.shields.io/badge/Kotlin-181717?style=flat&logo=kotlin&logoColor=yellow)
+![Gradle](https://img.shields.io/badge/Build-181717?style=flat&logo=gradle&logoColor=red)
 
 ---
 
