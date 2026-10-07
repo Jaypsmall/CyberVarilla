@@ -3,7 +3,7 @@
 > **Aplicación nativa Android para el control de ventas, cuentas y cobros.**
 ---
 
-##⚡CyberVarilla  ![Android](https://img.shields.io/badge/Android-181717?style=flat&logo=android&logoColor=green)! [Kotlin](https://img.shields.io/badge/Kotlin-181717?style=flat&logo=kotlin&logoColor=yellow)
+## ⚡CyberVarilla ![Android](https://img.shields.io/badge/Android-181717?style=flat&logo=android&logoColor=green) ! [Kotlin](https://img.shields.io/badge/Kotlin-181717?style=flat&logo=kotlin&logoColor=yellow)
 
 **CyberVarilla** es una aplicación **nativa para Android desarrollada íntegramente en Kotlin**, diseñada para llevar un control rápido y sencillo de **ventas, cuentas, cobros y pagos**.
 
