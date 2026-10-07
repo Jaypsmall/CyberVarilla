@@ -2,13 +2,10 @@
 
 > **Aplicación nativa Android para el control de ventas, cuentas y cobros.**
 
-![Android](https://img.shields.io/badge/Android-181717?style=flat&logo=android&logoColor=green)
-![Kotlin](https://img.shields.io/badge/Kotlin-181717?style=flat&logo=kotlin&logoColor=yellow)
-![Gradle](https://img.shields.io/badge/Build-181717?style=flat&logo=gradle&logoColor=red)
-
 ---
 
-## ⚡ CyberVarilla
+## ⚡ CyberVarilla  ![Android](https://img.shields.io/badge/Android-181717?style=flat&logo=android&logoColor=green)
+![Kotlin](https://img.shields.io/badge/Kotlin-181717?style=flat&logo=kotlin&logoColor=yellow)
 
 **CyberVarilla** es una aplicación **nativa para Android desarrollada íntegramente en Kotlin**, diseñada para llevar un control rápido y sencillo de **ventas, cuentas, cobros y pagos**.
 
@@ -224,42 +221,6 @@ La aplicación se desarrolla específicamente para Android y aprovecha las APIs 
 
 ---
 
-# 📦 Instalación
-
-Clona el repositorio:
-
-```bash
-git clone https://github.com/Jaypsmall/CyberVarilla.git
-```
-
-Accede al proyecto:
-
-```bash
-cd CyberVarilla
-```
-
-Compila la aplicación.
-
-### Windows
-
-```powershell
-gradlew.bat assembleDebug
-```
-
-### Linux / macOS
-
-```bash
-./gradlew assembleDebug
-```
-
-El APK generado se encontrará normalmente en:
-
-```text
-app/build/outputs/apk/
-```
-
----
-
 # 🧪 Desarrollo
 
 Para modificar o compilar CyberVarilla se recomienda utilizar:
@@ -292,7 +253,7 @@ El proyecto está orientado al desarrollo nativo de Android.
 ╚════════════════════════════════════╝
 ```
 
-CyberVarilla continúa en desarrollo.
+**CyberVarilla** continúa en desarrollo.
 
 Las funciones y la interfaz pueden evolucionar en futuras versiones.
 
