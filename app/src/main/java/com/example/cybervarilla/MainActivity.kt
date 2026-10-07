@@ -113,6 +113,7 @@ class MainActivity : AppCompatActivity() {
 
     private var playerPaid: MediaPlayer? = null
     private var playerNP: MediaPlayer? = null
+    private var voiceReceiverRegistered = false
 
     private val voiceReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -125,7 +126,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -167,7 +167,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         val filter = IntentFilter("com.example.cybervarilla.VOICE_COMMAND")
-        registerReceiver(voiceReceiver, filter)
+        ContextCompat.registerReceiver(
+            this,
+            voiceReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        voiceReceiverRegistered = true
 
         setupDrawer()
         loadLastFileName()
@@ -276,7 +282,7 @@ class MainActivity : AppCompatActivity() {
                 stopService(intent)
                 Toast.makeText(this, "Botón flotante desactivado", Toast.LENGTH_SHORT).show()
             } else {
-                startService(intent)
+                ContextCompat.startForegroundService(this, intent)
                 Toast.makeText(this, "Botón flotante activado", Toast.LENGTH_SHORT).show()
             }
         }
@@ -487,7 +493,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(voiceReceiver)
+        if (voiceReceiverRegistered) {
+            try {
+                unregisterReceiver(voiceReceiver)
+            } catch (_: Exception) {
+            }
+            voiceReceiverRegistered = false
+        }
         playerPaid?.release()
         playerNP?.release()
         speechRecognizer?.destroy()
