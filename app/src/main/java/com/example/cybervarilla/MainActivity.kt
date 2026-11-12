@@ -3,7 +3,6 @@ package com.example.cybervarilla
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
-import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -300,27 +299,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleTheme() {
-        val currentMode = getSharedPreferences("CyberPrefs", MODE_PRIVATE).getInt("night_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        
+        val prefs = getSharedPreferences("CyberPrefs", MODE_PRIVATE)
+        val currentMode = prefs.getInt("night_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         val newMode = (currentMode + 1) % 3
         
+        prefs.edit { putInt("night_mode", newMode) }
+
         if (newMode == 0) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
             Toast.makeText(this, "MODO PLATA", Toast.LENGTH_SHORT).show()
         } else {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             val nightSubMode = if (newMode == 1) "RED" else "PURPLE"
-            getSharedPreferences("CyberPrefs", MODE_PRIVATE).edit {
-                putString("night_submode", nightSubMode)
-            }
+            prefs.edit { putString("night_submode", nightSubMode) }
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
             Toast.makeText(this, "MODO $nightSubMode", Toast.LENGTH_SHORT).show()
-            
-            if (AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES) {
-                recreate()
-            }
+            recreate()
         }
-
-        getSharedPreferences("CyberPrefs", MODE_PRIVATE).edit { putInt("night_mode", newMode) }
     }
 
     private fun showSettingsDialog() {
@@ -535,21 +529,23 @@ class MainActivity : AppCompatActivity() {
         internalFile.forEachLine { line ->
             val trimmed = line.trim()
             when {
+                trimmed.startsWith("-") || trimmed.isEmpty() -> { /* ignore headers / timestamps */ }
                 trimmed == "PAGADO" -> section = "P"
                 trimmed == "NO PAGADO" -> section = "NP"
                 trimmed.startsWith("PAGADO TOTAL") || 
                 trimmed.startsWith("NO PAGADO TOTAL") || 
-                trimmed.startsWith("TOTAL GENERAL") -> { /* ignore */ }
+                trimmed.startsWith("TOTAL GENERAL") -> { /* ignore totals */ }
                 trimmed.contains(":") && section.isNotEmpty() -> {
                     try {
-                        val parts = trimmed.split(":")
-                        if (parts.size >= 2) {
-                            val n = parts[0].trim()
-                            val v = parts[1].trim().toInt()
+                        val colonIndex = trimmed.indexOf(':')
+                        val key = trimmed.substring(0, colonIndex).trim()
+                        val valStr = trimmed.substring(colonIndex + 1).trim()
+                        val value = valStr.toIntOrNull()
+                        if (!key.startsWith("-") && value != null) {
                             if (section == "P") {
-                                savedPagados[n] = (savedPagados[n] ?: 0) + v
+                                savedPagados[key] = (savedPagados[key] ?: 0) + value
                             } else if (section == "NP") {
-                                savedNoPagados[n] = (savedNoPagados[n] ?: 0) + v
+                                savedNoPagados[key] = (savedNoPagados[key] ?: 0) + value
                             }
                         }
                     } catch (_: Exception) {}
@@ -767,7 +763,7 @@ class MainActivity : AppCompatActivity() {
             val g = Color.green(bgColor)
             val b = Color.blue(bgColor)
             // Creams un color central más brilliant
-            val centerColor = Color.argb(255, Math.min(255, r + 40), Math.min(255, g + 40), Math.min(255, b + 40))
+            val centerColor = Color.argb(255, minOf(255, r + 40), minOf(255, g + 40), minOf(255, b + 40))
             
             colors = intArrayOf(centerColor, bgColor)
             gradientType = GradientDrawable.RADIAL_GRADIENT
@@ -900,15 +896,21 @@ class MainActivity : AppCompatActivity() {
         internalFile.forEachLine { line ->
             val trimmed = line.trim()
             when {
+                trimmed.startsWith("-") || trimmed.isEmpty() -> { /* ignore headers / timestamps */ }
                 trimmed == "PAGADO" -> section = "P"
                 trimmed == "NO PAGADO" -> section = "NP"
                 trimmed.startsWith("PAGADO TOTAL") || 
                 trimmed.startsWith("NO PAGADO TOTAL") || 
-                trimmed.startsWith("TOTAL GENERAL") -> { /* ignore */ }
+                trimmed.startsWith("TOTAL GENERAL") -> { /* ignore totals */ }
                 trimmed.contains(":") && section.isNotEmpty() -> {
                     try {
-                        val value = trimmed.split(":")[1].trim().toInt()
-                        if (section == "P") paid += value else np += value
+                        val colonIndex = trimmed.indexOf(':')
+                        val key = trimmed.substring(0, colonIndex).trim()
+                        val valStr = trimmed.substring(colonIndex + 1).trim()
+                        val value = valStr.toIntOrNull()
+                        if (!key.startsWith("-") && value != null) {
+                            if (section == "P") paid += value else np += value
+                        }
                     } catch (_: Exception) {}
                 }
             }
@@ -944,7 +946,7 @@ class MainActivity : AppCompatActivity() {
                 
                 currentFileName = name
                 lastFileMarker.writeText(currentFileName)
-                tvCurrentFile.text = "Archivo: $currentFileName"
+                tvCurrentFile.text = getString(R.string.current_file_label, currentFileName)
                 
                 // Reset state
                 tempEntries.clear()
