@@ -110,7 +110,7 @@ class FloatingVoiceService : Service() {
                     MotionEvent.ACTION_MOVE -> {
                         val deltaX = (event.rawX - initialTouchX).toInt()
                         val deltaY = (event.rawY - initialTouchY).toInt()
-                        if (!isDragging && (Math.abs(deltaX) > touchSlop || Math.abs(deltaY) > touchSlop)) {
+                        if (!isDragging && (kotlin.math.abs(deltaX) > touchSlop || kotlin.math.abs(deltaY) > touchSlop)) {
                             isDragging = true
                         }
                         if (isDragging) {
@@ -166,7 +166,7 @@ class FloatingVoiceService : Service() {
             val r = Color.red(bgColor)
             val g = Color.green(bgColor)
             val b = Color.blue(bgColor)
-            val centerColor = Color.argb(255, Math.min(255, r + 40), Math.min(255, g + 40), Math.min(255, b + 40))
+            val centerColor = Color.argb(255, minOf(255, r + 40), minOf(255, g + 40), minOf(255, b + 40))
             colors = intArrayOf(centerColor, bgColor)
             gradientType = GradientDrawable.RADIAL_GRADIENT
             gradientRadius = 150 * density
@@ -241,6 +241,10 @@ class FloatingVoiceService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         speechRecognizer?.destroy()
-        if (::floatingView.isInitialized) windowManager.removeView(floatingView)
+        if (::floatingView.isInitialized) {
+            try {
+                windowManager.removeView(floatingView)
+            } catch (_: Exception) {}
+        }
     }
 }
