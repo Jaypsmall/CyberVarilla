@@ -1,4 +1,4 @@
-# ⚡ CyberVarilla <a href="https://kotlinlang.org" target="_blank"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/kotlin/kotlin-original.svg" height="30" alt="Kotlin" />&nbsp;<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/android/android-original.svg" height="30" alt="Android" />
+# ⚡ CyberVarilla <a href="https://kotlinlang.org" target="_blank"><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/kotlin/kotlin-original.svg" height="30" alt="Kotlin" /><img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/android/android-original.svg" height="30" alt="Android" />
 
 > **Aplicación nativa Android para el control de ventas, cuentas y cobros.**
 ---
